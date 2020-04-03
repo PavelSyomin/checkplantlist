@@ -5,7 +5,7 @@ Files of [https://checkplantlst.online](checkplantlist.online) web app
 - test_data.txt — a list of species which may be used to test the application.
 
 ## What does the application for
-The application checks if the names of the species of plants are accepted, synonyms, unresolved or misapplied according to [http://theplantlist.org](ThePlantList) database. It is built on the top of helixcn/plantlist package and uses an offline copy of ThePlantList database.
+The application checks if the names of the species of plants are accepted, synonyms, unresolved or misapplied according to [http://theplantlist.org](ThePlantList) database. It is built on the top of [https://github.com/helixcn/plantlist/](plantlist) package and uses an offline copy of ThePlantList database.
 
 ## How application works
 1. Paste list of species' names into a textarea.
