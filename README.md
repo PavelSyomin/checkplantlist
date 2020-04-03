@@ -4,7 +4,7 @@ Files of [https://checkplantlst.online](checkplantlist.online) web app
 - Sample.rds — static asset called from code.
 - test_data.txt — a list of species which may be used to test the application.
 
-## What does the application for
+## What is this application for
 The application checks if the names of the species of plants are accepted, synonyms, unresolved or misapplied according to [http://theplantlist.org](ThePlantList) database. It is built on the top of [https://github.com/helixcn/plantlist/](plantlist) package and uses an offline copy of ThePlantList database.
 
 ## How application works
