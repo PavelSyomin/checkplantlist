@@ -13,12 +13,9 @@ library(plantlist)
 library(openxlsx)
 library(promises)
 library(future)
-library(future.batchtools)
 library(ipc)
 library(shinyjs)
-# options("future.fork.enable" = TRUE)
-# plan(multicore, workers = 2)
-plan(cluster, workers = rep("localhost", times = 1L), gc = TRUE)
+plan(multicore, workers = 2)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -45,11 +42,9 @@ ui <- fluidPage(
                         "Любые опечатки пока трактуются не в вашу пользу."),
                actionButton("update", "Проверить")
              ),
-         p("Это веб-приложение сделали Павел Сёмин и Николай Груданов в 2019–2020 году. Можете скачать",
-         a(href = "source.zip", "исходный код"), "и запустить локальную версию или усовершенствовать алгоритм работы. По любым вопросам пишите на ",
-         a(href = "mailto:pas.ntg@gmail.com", "pas.ntg@gmail.com")),
-         p("Хостинг стоит 3 500 рублей в год. Мы платим из своих денег. Можете ",
-         a(href = "https://money.yandex.ru/to/410011310891653", target = "_blank", "поддержать нас."))
+         p("Это веб-приложение сделали Павел Сёмин и Николай Груданов в 2019–2020 году. Исходный код есть ",
+         a(href = "https://github.com/PavelSyomin/checkplantlist", target = "_blank", "на Гитхабе"), "По любым вопросам пишите на ",
+         a(href = "mailto:pas.ntg@gmail.com", "pas.ntg@gmail.com"))
       ),
       
       # Show a plot of the generated distribution
