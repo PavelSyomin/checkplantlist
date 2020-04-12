@@ -43,7 +43,7 @@ ui <- fluidPage(
                actionButton("update", "Проверить")
              ),
          p("Это веб-приложение сделали Павел Сёмин и Николай Груданов в 2019–2020 году. Исходный код есть ",
-         a(href = "https://github.com/PavelSyomin/checkplantlist", target = "_blank", "на Гитхабе"), "По любым вопросам пишите на ",
+         a(href = "https://github.com/PavelSyomin/checkplantlist", target = "_blank", "на Гитхабе."), "По любым вопросам пишите на ",
          a(href = "mailto:pas.ntg@gmail.com", "pas.ntg@gmail.com"))
       ),
       
