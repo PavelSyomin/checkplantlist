@@ -26,7 +26,7 @@ ui <- fluidPage(
    # Application title
    titlePanel("Проверка по ThePlantList"),
    
-   # Sidebar with a slider input for number of bins 
+   # Sidebar with a textarea input for a list of species
    fluidRow(
       column(4,
              wellPanel(
@@ -47,7 +47,7 @@ ui <- fluidPage(
          a(href = "mailto:pas.ntg@gmail.com", "pas.ntg@gmail.com"))
       ),
       
-      # Show a plot of the generated distribution
+      # Show a table with a result and buttons to download result as a file
       column(8,
         conditionalPanel("output.checked_species",
                          downloadButton("csv", "Скачать как CSV-файл"),
@@ -219,5 +219,6 @@ server <- function(input, output, session) {
 # Run the application 
 shinyApp(ui = ui, server = server)
 
+# The commented code was used to generate sapmle.rds and should not be uncommented unless you want to re-generate sample.rds
 # saveRDS(process_data(parse_input("Betula Pendula Roth\nAbies Alba (Münchh.) Michx.\nPinus Sylvestris Thunb.\nAcanthopale azaleoides\nCaput Draconis")), file = "sample.rds")
 # df <- readRDS("sample.rds")
