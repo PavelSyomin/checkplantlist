@@ -15,7 +15,8 @@ library(promises)
 library(future)
 library(ipc)
 library(shinyjs)
-plan(multicore, workers = 2)
+library(RSQLite)
+plan(multisession, workers = 4)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -62,6 +63,7 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   
   reader <- function (file) {
+    print("READ")
     content <- as.data.frame(matrix(gsub("\"", "", readLines(file)), ncol = 7, byrow = TRUE))
     colnames(content) <- c("name",
                            "author",
@@ -71,6 +73,20 @@ server <- function(input, output, session) {
                            "accepted_author",
                            "accepted_id")
     content
+  }
+  
+  get_data <- function(name)
+  {
+    print(name)
+    conn <- dbConnect(SQLite(), "species.db")
+    query <- "SELECT * FROM plantlist WHERE search_string = ?"
+    parts <- strsplit(name, " ")[[1]]
+    search_string <- paste(parts[1], tolower(parts[2]), sep = "")
+    result <- dbGetQuery(conn, query, search_string)
+    if (nrow(result) == 0)
+      result <- reader("data/NOT_FOUND.csv")
+    result$search_string <- NULL
+    return(result)
   }
   
   find_most_appropriate <- function (data, name)
@@ -146,12 +162,13 @@ server <- function(input, output, session) {
   }
   
   retrieve_accepted_name <- function(name, progress, progress_increment = 0.2) {
-    parts <- strsplit(name, " ")[[1]]
-    path <- paste("data/", parts[1], "_", tolower(parts[2]), ".csv", sep = "")
-    if (file.exists(path))
-      matches <- reader(path)
-    else
-      matches <- reader("data/NOT_FOUND.csv")
+    matches <- get_data(name)
+    # parts <- strsplit(name, " ")[[1]]
+    # path <- paste("data/", parts[1], "_", tolower(parts[2]), ".csv", sep = "")
+    # if (file.exists(path))
+    #   matches <- reader(path)
+    # else
+    #   matches <- reader("data/NOT_FOUND.csv")
     result <- find_most_appropriate(matches, name)
     # matches <- status(name, detail = TRUE)
     # colnames(matches) <- tolower(colnames(matches))
