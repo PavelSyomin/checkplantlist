@@ -61,34 +61,125 @@ ui <- fluidPage(
 # Define server logic
 server <- function(input, output, session) {
   
-  retrieve_accepted_name <- function(name, progress, progress_increment = 0.2) {
-    matches <- status(name, detail = TRUE)
-    colnames(matches) <- tolower(colnames(matches))
+  reader <- function (file) {
+    content <- as.data.frame(matrix(gsub("\"", "", readLines(file)), ncol = 7, byrow = TRUE))
+    colnames(content) <- c("name",
+                           "author",
+                           "status",
+                           "id",
+                           "accepted_name",
+                           "accepted_author",
+                           "accepted_id")
+    content
+  }
+  
+  find_most_appropriate <- function (data, name)
+  {
+    data$name <- tolower(data$name)
+    data$author <- tolower(data$author)
+    name <- tolower(name)
+    
+    result <- data
+    if (nrow(result) == 1)
+      return(result)
+    
+    result <- data[data$name == name, ]
+    if (nrow(result) == 1)
+      return(result)
+    
+    data$full_name <- paste(data$name, data$author, sep = " ")
+    result <- data[data$full_name == name, ]
+    result$full_name <- NULL
+    if (nrow(result) == 1)
+      return(result)
+    data$full_name <- NULL
+    
     name_parts <- parse_taxa(name)
     colnames(name_parts) <- tolower(colnames(name_parts))
-    search_author <- ""
-    search_author <- name_parts$author_of_species_parsed
-    search_author <- paste0(toupper(substring(search_author, 1, 1)), substring(search_author, 2))
-    matches$search_author <- search_author
-    if(nrow(matches) == 1) {
-      result <- matches
+    name_parts$name <- paste(name_parts$genus_parsed, name_parts$species_parsed, sep = " ")
+    
+    result <- data[data$name == name_parts$name & data$author == name_parts$author_of_species_parsed, ]
+    if (nrow(result) == 1)
+      return(result)
+    
+    name_pattern <- paste("^", name, sep = "")
+    result <- data[grepl(name_pattern, data$name), ]
+    if (nrow(result) == 1)
+      return(result)
+    
+    result <- data[grepl(name_pattern, data$name) & data$author == name_parts$author_of_species_parsed, ]
+    if(nrow(result) == 1)
+      return(result)
+    
+    isHybrid <- grepl(" [x×] ", name)
+    if (isHybrid)
+    {
+      return(reader("data/NOT_FOUND.csv"))
     }
-    if(nrow(matches) > 1) {
-      matches_with_author <- matches[matches$author == matches$search_author, ]
-      if(nrow(matches_with_author) >= 1) {
-        result <- matches_with_author
-      }
-      else {
-        result <- matches
-      }
-    }
+    
+    data_parsed <- do.call(rbind, apply(data, 1, function(x) parse_taxa(x["name"])))
+    
+    colnames(data_parsed) <- tolower(colnames(data_parsed))
+    
+    scores <- apply(data_parsed, 1, function (x, parts) {
+      total <-  0
+      if (x["genus_parsed"] == parts$genus_parsed)
+        total <- total + 1
+      if (x["species_parsed"] == parts$species_parsed)
+        total <- total + 1
+      if (x["author_of_species_parsed"] == parts$author_of_species_parsed)
+        total <- total + 1
+      if (x["infraspecific_rank_parsed"] == parts$infraspecific_rank_parsed)
+        total <- total + 1
+      if (x["infraspecific_epithet_parsed"] == parts$infraspecific_epithet_parsed)
+        total <- total + 1
+      if (x["author_of_infraspecific_rank_parsed"] == parts$author_of_infraspecific_rank_parsed)
+        total <- total + 1
+      return(total)
+    }, name_parts)
+    scores <- as.numeric(scores)
+    max_score <- which.max(scores)
+    result <- data[max_score, ]
+    if (nrow(result) == 1)
+      return(result)
+    return(data)
+  }
+  
+  retrieve_accepted_name <- function(name, progress, progress_increment = 0.2) {
+    parts <- strsplit(name, " ")[[1]]
+    path <- paste("data/", parts[1], "_", tolower(parts[2]), ".csv", sep = "")
+    if (file.exists(path))
+      matches <- reader(path)
+    else
+      matches <- reader("data/NOT_FOUND.csv")
+    result <- find_most_appropriate(matches, name)
+    # matches <- status(name, detail = TRUE)
+    # colnames(matches) <- tolower(colnames(matches))
+    # name_parts <- parse_taxa(name)
+    # colnames(name_parts) <- tolower(colnames(name_parts))
+    # search_author <- ""
+    # search_author <- name_parts$author_of_species_parsed
+    # search_author <- paste0(toupper(substring(search_author, 1, 1)), substring(search_author, 2))
+    # matches$search_author <- search_author
+    # print(matches)
+    # if(nrow(matches) == 1) {
+    #   result <- matches
+    # }
+    # if(nrow(matches) > 1) {
+    #   matches_with_author <- matches[matches$author == matches$search_author, ]
+    #   if(nrow(matches_with_author) >= 1) {
+    #     result <- matches_with_author
+    #   }
+    #   else {
+    #     result <- matches
+    #   }
+    # }
     result[is.na.data.frame(result)] <- ""
-    result$search <- paste(result$search, result$search_author)
-    result$accepted_name <- paste(result$accepted_species, result$accepted_author)
-    result[result$status == "", "status"] <- "Not found"
-    result[, c("id", "family", "scientific_name",
-               "author", "accepted_species",
-               "accepted_author", "search_author")] <- NULL
+    result$search <- name
+    result$accepted_name <- paste(result$accepted_name, result$accepted_author)
+    result[result$status == "Not Found", "status"] <- "Not found"
+    result[, c("id", "name",
+               "author", "accepted_author")] <- NULL
     progress$inc(progress_increment, message = "Проверка", detail = name)
     return(result)
   }
