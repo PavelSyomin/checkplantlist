@@ -16,7 +16,7 @@ library(future)
 library(ipc)
 library(shinyjs)
 library(RSQLite)
-plan(multisession, workers = 4)
+plan(multisession, workers = 2)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -39,6 +39,13 @@ ui <- fluidPage(
                              resize = "vertical",
                              rows = 10
                ),
+               selectInput("plantdb",
+                           "База для проверки",
+                            choices = list(
+                              "ThePlantList" = "plantlist",
+                              "WorldFloraOnline" = "wfo"
+                            ),
+                           width = "100%"),
                helpText("Одна строка — одно название.",
                         "Любые опечатки пока трактуются не в вашу пользу."),
                actionButton("update", "Проверить")
@@ -63,7 +70,6 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   
   reader <- function (file) {
-    print("READ")
     content <- as.data.frame(matrix(gsub("\"", "", readLines(file)), ncol = 7, byrow = TRUE))
     colnames(content) <- c("name",
                            "author",
@@ -75,14 +81,16 @@ server <- function(input, output, session) {
     content
   }
   
-  get_data <- function(name)
+  get_data <- function(name, table_name = "plantlist")
   {
-    print(name)
     conn <- dbConnect(SQLite(), "species.db")
-    query <- "SELECT * FROM plantlist WHERE search_string = ?"
+    query <- switch(table_name,
+                    plantlist = "SELECT * FROM plantlist WHERE search_string = ?",
+                    wfo = "SELECT * FROM wfo WHERE search_string = ?"
+    )
     parts <- strsplit(name, " ")[[1]]
     search_string <- paste(parts[1], tolower(parts[2]), sep = "")
-    result <- dbGetQuery(conn, query, search_string)
+    result <- dbGetQuery(conn, query, params = search_string)
     if (nrow(result) == 0)
       result <- reader("data/NOT_FOUND.csv")
     result$search_string <- NULL
@@ -161,36 +169,15 @@ server <- function(input, output, session) {
     return(data)
   }
   
-  retrieve_accepted_name <- function(name, progress, progress_increment = 0.2) {
-    matches <- get_data(name)
+  retrieve_accepted_name <- function(name, plantdb, progress, progress_increment = 0.2) {
+    matches <- get_data(name, plantdb)
     # parts <- strsplit(name, " ")[[1]]
     # path <- paste("data/", parts[1], "_", tolower(parts[2]), ".csv", sep = "")
     # if (file.exists(path))
-    #   matches <- reader(path)
+      # matches <- reader(path)
     # else
-    #   matches <- reader("data/NOT_FOUND.csv")
+    #  matches <- reader("data/NOT_FOUND.csv")
     result <- find_most_appropriate(matches, name)
-    # matches <- status(name, detail = TRUE)
-    # colnames(matches) <- tolower(colnames(matches))
-    # name_parts <- parse_taxa(name)
-    # colnames(name_parts) <- tolower(colnames(name_parts))
-    # search_author <- ""
-    # search_author <- name_parts$author_of_species_parsed
-    # search_author <- paste0(toupper(substring(search_author, 1, 1)), substring(search_author, 2))
-    # matches$search_author <- search_author
-    # print(matches)
-    # if(nrow(matches) == 1) {
-    #   result <- matches
-    # }
-    # if(nrow(matches) > 1) {
-    #   matches_with_author <- matches[matches$author == matches$search_author, ]
-    #   if(nrow(matches_with_author) >= 1) {
-    #     result <- matches_with_author
-    #   }
-    #   else {
-    #     result <- matches
-    #   }
-    # }
     result[is.na.data.frame(result)] <- ""
     result$search <- name
     result$accepted_name <- paste(result$accepted_name, result$accepted_author)
@@ -204,8 +191,11 @@ server <- function(input, output, session) {
   status_colorizer <- function(value) {
     switch(value,
            Accepted = "<span class=\"text-success\">Accepted</span>",
+           heterotypicSynonym = "<span class=\"text-warning\"> Heterotypic Synonym</span>",
+           homotypicSynonym = "<span class=\"text-warning\"> Homotypic Synonym</span>",
            Synonym = "<span class=\"text-warning\">Synonym</span>",
            Unresolved = "<span class=\"text-info\">Unresolved</span>",
+           Unchecked = "<span class=\"text-info\">Unchecked</span>",
            Misapplied = "<span class=\"text-danger\">Misapplied</span>",
            "Not found" = "Not found",
            "Error")
@@ -219,17 +209,22 @@ server <- function(input, output, session) {
   }
   
   get_url <- function(text) {
-    if (text == "") {return("")}
-    paste0("http://theplantlist.org/tpl1.1/record/", text)
+    if (text == "") 
+      return("")
+    switch(list$plantdb,
+           "plantlist" = paste0("http://theplantlist.org/tpl1.1/record/", text),
+           "wfo" = paste0("http://www.worldfloraonline.org/taxon/", text)
+    )
   }
   
   get_hyperlink <- function(text) {
-    if (text == "") {return("")}
+    if (text == "")
+      return("")
     href = get_url(text)
     paste0("<a href=\"", href, "\" target=\"_blank\">", text, "</a>")
   }
   
-  process_data <- function(species) {
+  process_data <- function(species, plantdb) {
     species <- species[trimws(species) != ""]
     progress <- AsyncProgress$new(message = "Ищем ресурсы", detail = "Это занимает от секунды до 10 минут", min = 0, max = 1, value = 0, millis = 100)
     disable("update")
@@ -237,7 +232,7 @@ server <- function(input, output, session) {
     disable("xlsx")
     matches <- future(
       {
-        do.call(rbind, lapply(species, retrieve_accepted_name, progress, progress_increment = 1/length(species)))
+        do.call(rbind, lapply(species, retrieve_accepted_name, plantdb, progress, progress_increment = 1/length(species)))
         }, lazy = TRUE)
     then(matches, function(x) {
       progress$close()
@@ -269,12 +264,14 @@ server <- function(input, output, session) {
   list <- reactiveValues(
     data = NULL,
     demo = readRDS("sample.rds"),
+    plantdb = "plantlist",
     result = NULL
   )
   
   observeEvent(input$update, {
     list$data <- parse_input(input$species)
-    list$result <- process_data(list$data)
+    list$plantdb <- input$plantdb
+    list$result <- process_data(list$data, list$plantdb)
   })
   
 
