@@ -43,7 +43,8 @@ ui <- fluidPage(
                            "База для проверки",
                             choices = list(
                               "ThePlantList" = "plantlist",
-                              "WorldFloraOnline" = "wfo"
+                              "WorldFloraOnline" = "wfo",
+                              "World Checklist of Vascular Plants" = "wcvp"
                             ),
                            width = "100%"),
                helpText("Одна строка — одно название.",
@@ -86,9 +87,12 @@ server <- function(input, output, session) {
     conn <- dbConnect(SQLite(), "species.db")
     query <- switch(table_name,
                     plantlist = "SELECT * FROM plantlist WHERE search_string = ?",
-                    wfo = "SELECT * FROM wfo WHERE search_string = ?"
+                    wfo = "SELECT * FROM wfo WHERE search_string = ?",
+                    wcvp = "SELECT * FROM wcvp WHERE search_string = ?"
     )
     parts <- strsplit(name, " ")[[1]]
+    if (length(parts) == 1)
+      parts[2] <- ""
     search_string <- paste(parts[1], tolower(parts[2]), sep = "")
     result <- dbGetQuery(conn, query, params = search_string)
     if (nrow(result) == 0)
@@ -97,8 +101,10 @@ server <- function(input, output, session) {
     return(result)
   }
   
-  find_most_appropriate <- function (data, name)
+  find_most_appropriate <- function(data, name)
   {
+    print(name)
+    print(data)
     data$name <- tolower(data$name)
     data$author <- tolower(data$author)
     name <- tolower(name)
@@ -191,12 +197,15 @@ server <- function(input, output, session) {
   status_colorizer <- function(value) {
     switch(value,
            Accepted = "<span class=\"text-success\">Accepted</span>",
-           heterotypicSynonym = "<span class=\"text-warning\"> Heterotypic Synonym</span>",
-           homotypicSynonym = "<span class=\"text-warning\"> Homotypic Synonym</span>",
+           heterotypicSynonym = "<span class=\"text-warning\">Heterotypic Synonym</span>",
+           homotypicSynonym = "<span class=\"text-warning\">Homotypic Synonym</span>",
+           Homotypic_Synonym = "<span class=\"text-warning\">Homotypic Synonym</span>",
            Synonym = "<span class=\"text-warning\">Synonym</span>",
            Unresolved = "<span class=\"text-info\">Unresolved</span>",
            Unchecked = "<span class=\"text-info\">Unchecked</span>",
+           Unplaced = "<span class=\"text-info\">Unplaced</span>",
            Misapplied = "<span class=\"text-danger\">Misapplied</span>",
+           "Artificial Hybrid" = "Artificial hybrid",
            "Not found" = "Not found",
            "Error")
   }
@@ -213,7 +222,8 @@ server <- function(input, output, session) {
       return("")
     switch(list$plantdb,
            "plantlist" = paste0("http://theplantlist.org/tpl1.1/record/", text),
-           "wfo" = paste0("http://www.worldfloraonline.org/taxon/", text)
+           "wfo" = paste0("http://www.worldfloraonline.org/taxon/", text),
+           "wcvp" = paste0("https://wcvp.science.kew.org/taxon/", text)
     )
   }
   

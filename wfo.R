@@ -79,36 +79,3 @@ dbWriteTable(conn, "wfo", wfo)
 dbExecute(conn, "CREATE INDEX search_string_index ON wfo(search_string)")
 
 dbDisconnect(conn)
-
-
-dbGetQuery(conn, "SELECT * FROM wfo WHERE name LIKE 'Medicago%varia'")
-
-
-head(data)
-data[scientificName == "Abies abies"]
-data2 <- data[, .(taxonID, scientificName, scientificNameAuthorship, taxonomicStatus, acceptedNameUsageID)]
-saveRDS(data2, "wfo.rds")
-data3 <- readRDS("wfo.rds")
-table(data3$taxonomicStatus)
-str(data)
-
-status_wfo <- function(name, data)
-{
-  name_parts <- parse_taxa(name)
-  sp_name <- paste0(name_parts$GENUS_PARSED, " ", tolower(name_parts$SPECIES_PARSED))
-  result <- data[scientificName == sp_name]
-  if (nrow(result) == 1)
-    if (result$taxonomicStatus == "Accepted") return(result)
-    else
-    {
-      id <- result$acceptedNameUsageID
-      data[taxonID == id]
-    }
-  else
-  {
-    merge(result, data, by.x = "acceptedNameUsageID", by.y = "taxonID", all.x = TRUE)
-  }
-}
-
-status_wfo("Betula Pendula Roth.", data3)
-status_wfo("Abies Alba Mill.", data3)
