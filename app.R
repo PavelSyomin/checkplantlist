@@ -44,7 +44,9 @@ ui <- fluidPage(
                             choices = list(
                               "ThePlantList" = "plantlist",
                               "WorldFloraOnline" = "wfo",
-                              "World Checklist of Vascular Plants" = "wcvp"
+                              "World Checklist of Vascular Plants" = "wcvp",
+                              "GBIF Backbone" = "gbif",
+                              "Leipzig Catalogue of Vascular Plants" = "lcvp"
                             ),
                            width = "100%"),
                helpText("Одна строка — одно название.",
@@ -88,7 +90,9 @@ server <- function(input, output, session) {
     query <- switch(table_name,
                     plantlist = "SELECT * FROM plantlist WHERE search_string = ?",
                     wfo = "SELECT * FROM wfo WHERE search_string = ?",
-                    wcvp = "SELECT * FROM wcvp WHERE search_string = ?"
+                    wcvp = "SELECT * FROM wcvp WHERE search_string = ?",
+                    gbif = "SELECT * FROM gbif WHERE search_string = ?",
+                    lcvp = "SELECT * FROM lcvp WHERE search_string = ?"
     )
     parts <- strsplit(name, " ")[[1]]
     if (length(parts) == 1)
@@ -96,7 +100,7 @@ server <- function(input, output, session) {
     search_string <- paste(parts[1], tolower(parts[2]), sep = "")
     result <- dbGetQuery(conn, query, params = search_string)
     if (nrow(result) == 0)
-      result <- reader("data/NOT_FOUND.csv")
+      result <- reader("NOT_FOUND.csv")
     result$search_string <- NULL
     return(result)
   }
@@ -144,7 +148,7 @@ server <- function(input, output, session) {
     isHybrid <- grepl(" [x×] ", name)
     if (isHybrid)
     {
-      return(reader("data/NOT_FOUND.csv"))
+      return(reader("NOT_FOUND.csv"))
     }
     
     data_parsed <- do.call(rbind, apply(data, 1, function(x) parse_taxa(x["name"])))
@@ -197,14 +201,22 @@ server <- function(input, output, session) {
   status_colorizer <- function(value) {
     switch(value,
            Accepted = "<span class=\"text-success\">Accepted</span>",
+           accepted = "<span class=\"text-success\">Accepted</span>",
            heterotypicSynonym = "<span class=\"text-warning\">Heterotypic Synonym</span>",
+           "heterotypic synonym" = "<span class=\"text-warning\">Heterotypic Synonym</span>",
            homotypicSynonym = "<span class=\"text-warning\">Homotypic Synonym</span>",
+           "homotypic synonym" = "<span class=\"text-warning\">Homotypic Synonym</span>",
            Homotypic_Synonym = "<span class=\"text-warning\">Homotypic Synonym</span>",
            Synonym = "<span class=\"text-warning\">Synonym</span>",
+           synonym = "<span class=\"text-warning\">Synonym</span>",
+           "proparte synonym" = "<span class=\"text-warning\"> Proparte Synonym</span>",
            Unresolved = "<span class=\"text-info\">Unresolved</span>",
            Unchecked = "<span class=\"text-info\">Unchecked</span>",
            Unplaced = "<span class=\"text-info\">Unplaced</span>",
+           doubtful = "<span class=\"text-info\">Doubtful</span>",
            Misapplied = "<span class=\"text-danger\">Misapplied</span>",
+           misapplied = "<span class=\"text-danger\">Misapplied</span>",
+           external = "External",
            "Artificial Hybrid" = "Artificial hybrid",
            "Not found" = "Not found",
            "Error")
@@ -223,7 +235,9 @@ server <- function(input, output, session) {
     switch(list$plantdb,
            "plantlist" = paste0("http://theplantlist.org/tpl1.1/record/", text),
            "wfo" = paste0("http://www.worldfloraonline.org/taxon/", text),
-           "wcvp" = paste0("https://wcvp.science.kew.org/taxon/", text)
+           "wcvp" = paste0("https://wcvp.science.kew.org/taxon/", text),
+           "gbif" = paste0("https://www.gbif.org/species/", text),
+           "lcvp" = ""
     )
   }
   
