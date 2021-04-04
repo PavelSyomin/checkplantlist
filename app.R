@@ -9,7 +9,6 @@
 
 
 library(shiny)
-library(plantlist)
 library(openxlsx)
 library(promises)
 library(future)
@@ -48,7 +47,9 @@ ui <- fluidPage(
                               "GBIF Backbone" = "gbif",
                               "Leipzig Catalogue of Vascular Plants" = "lcvp"
                             ),
-                           width = "100%"),
+                           width = "100%",
+                           selected = "plantlist",
+                           multiple = TRUE),
                helpText("Одна строка — одно название.",
                         "Любые опечатки пока трактуются не в вашу пользу."),
                actionButton("update", "Проверить")
@@ -72,17 +73,140 @@ ui <- fluidPage(
 # Define server logic
 server <- function(input, output, session) {
   
-  reader <- function (file) {
-    content <- as.data.frame(matrix(gsub("\"", "", readLines(file)), ncol = 7, byrow = TRUE))
-    colnames(content) <- c("name",
-                           "author",
-                           "status",
-                           "id",
-                           "accepted_name",
-                           "accepted_author",
-                           "accepted_id")
-    content
+  # Copied from plantlist package
+  parse_taxa <- function (taxa) 
+  {
+    parse_taxon <- function(taxon) {
+      replace_space <- function(x) {
+        gsub("[[:space:]]+", " ", gsub("^[[:space:]]+|[[:space:]]+$", 
+                                       "", x))
+      }
+      if (length(taxon) > 1) {
+        stop("Only one taxon allowed")
+      }
+      GENUS <- ""
+      SPECIES <- ""
+      AUTHOR_OF_SPECIES <- ""
+      INFRASPECIFIC_RANK <- ""
+      INFRASPECIFIC_EPITHET <- ""
+      AUTHOR_OF_INFRASPECIFIC_RANK <- ""
+      taxon <- gsub(" +", " ", replace_space(taxon))
+      gap1 <- regexpr(pattern = " ", text = taxon)
+      GENUS <- replace_space(substr(taxon, start = 1, stop = (gap1 - 
+                                                                1)))
+      part1 <- replace_space(substr(taxon, start = gap1 + 1, 
+                                    stop = nchar(taxon)))
+      gap2 <- regexpr(pattern = " ", text = part1)
+      if (gap2 < 0) {
+        SPECIES <- replace_space(substr(part1, start = gap2 + 
+                                          1, stop = nchar(part1)))
+        author_temp <- ""
+      }
+      else {
+        SPECIES <- replace_space(substr(part1, start = 1, 
+                                        stop = (gap2 - 1)))
+        author_temp <- replace_space(substr(part1, start = gap2 + 
+                                              1, stop = nchar(part1)))
+      }
+      AUTHOR_OF_SPECIES <- author_temp
+      gap3 <- regexpr(pattern = " ", text = author_temp)
+      if (grepl("var\\. ", taxon) | grepl("subsp\\. ", taxon) | 
+          grepl(" f\\. ", taxon)) {
+        if (grepl("var\\. ", taxon)) {
+          INFRASPECIFIC_RANK <- "var."
+          gap_var <- regexpr(pattern = "var\\. ", text = author_temp) + 
+            nchar("var.")
+          AUTHOR_OF_SPECIES <- replace_space(substr(author_temp, 
+                                                    start = 1, stop = gap_var - nchar("var.") - 
+                                                      1))
+          part_INFRASP_EP_AUTHOR_OF_INFRASP <- replace_space(substr(author_temp, 
+                                                                    start = gap_var + 1, stop = nchar(author_temp)))
+        }
+        else {
+          if (grepl("subsp\\. ", taxon)) {
+            INFRASPECIFIC_RANK <- "subsp."
+            gap_subsp <- regexpr(pattern = "subsp\\. ", 
+                                 text = author_temp) + nchar("subsp.")
+            AUTHOR_OF_SPECIES <- replace_space(substr(author_temp, 
+                                                      start = 1, stop = gap_subsp - nchar("subsp.") - 
+                                                        1))
+            part_INFRASP_EP_AUTHOR_OF_INFRASP <- replace_space(substr(author_temp, 
+                                                                      start = gap_subsp + 1, stop = nchar(author_temp)))
+          }
+          else {
+            if (substr(author_temp, start = 1, stop = nchar("f.")) == 
+                "f.") {
+              INFRASPECIFIC_RANK <- "f."
+              gap_f <- regexpr(pattern = "f\\. ", text = author_temp) + 
+                nchar("f.")
+              position_f <- regexpr(pattern = "f\\.", text = taxon)[[1]][1]
+              position_white_space <- regexpr(pattern = "", 
+                                              text = taxon)[[1]]
+              location_species_end <- position_white_space[2]
+              AUTHOR_OF_SPECIES_temp <- replace_space(substr(taxon, 
+                                                             start = location_species_end, stop = position_f - 
+                                                               1))
+              AUTHOR_OF_SPECIES <- ifelse(is.na(AUTHOR_OF_SPECIES_temp), 
+                                          "", AUTHOR_OF_SPECIES_temp)
+              part_INFRASP_EP_AUTHOR_OF_INFRASP <- replace_space(substr(author_temp, 
+                                                                        start = gap_f + 1, stop = nchar(author_temp)))
+            }
+            else {
+              INFRASPECIFIC_RANK <- ""
+              part_INFRASP_EP_AUTHOR_OF_INFRASP <- ""
+              AUTHOR_OF_SPECIES <- replace_space(substr(author_temp, 
+                                                        start = 1, stop = nchar(author_temp)))
+            }
+          }
+        }
+      }
+      else {
+        part_INFRASP_EP_AUTHOR_OF_INFRASP <- ""
+      }
+      gap4 <- regexpr(pattern = " ", text = part_INFRASP_EP_AUTHOR_OF_INFRASP)
+      if (gap4 > 0) {
+        INFRASPECIFIC_EPITHET <- replace_space(substr(part_INFRASP_EP_AUTHOR_OF_INFRASP, 
+                                                      start = 1, stop = gap4 - 1))
+        AUTHOR_OF_INFRASPECIFIC_RANK <- replace_space(substr(part_INFRASP_EP_AUTHOR_OF_INFRASP, 
+                                                             start = gap4 + 1, stop = nchar(part_INFRASP_EP_AUTHOR_OF_INFRASP)))
+      }
+      else {
+        INFRASPECIFIC_EPITHET <- replace_space(substr(part_INFRASP_EP_AUTHOR_OF_INFRASP, 
+                                                      start = 1, stop = nchar(part_INFRASP_EP_AUTHOR_OF_INFRASP)))
+        if (INFRASPECIFIC_EPITHET %in% strsplit(AUTHOR_OF_SPECIES, 
+                                                " ")[[1]]) {
+          INFRASPECIFIC_EPITHET <- ""
+        }
+      }
+      if (!grepl(" ", taxon)) {
+        GENUS = taxon
+        SPECIES <- ""
+        AUTHOR_OF_SPECIES <- ""
+        INFRASPECIFIC_RANK <- ""
+        INFRASPECIFIC_EPITHET <- ""
+        AUTHOR_OF_INFRASPECIFIC_RANK <- ""
+      }
+      res <- c(taxon, GENUS, SPECIES, AUTHOR_OF_SPECIES, INFRASPECIFIC_RANK, 
+               INFRASPECIFIC_EPITHET, AUTHOR_OF_INFRASPECIFIC_RANK)
+      names(res) <- c("TAXON_PARSED", "GENUS_PARSED", "SPECIES_PARSED", 
+                      "AUTHOR_OF_SPECIES_PARSED", "INFRASPECIFIC_RANK_PARSED", 
+                      "INFRASPECIFIC_EPITHET_PARSED", "AUTHOR_OF_INFRASPECIFIC_RANK_PARSED")
+      return(res)
+    }
+    res <- data.frame(t(sapply(taxa, parse_taxon, USE.NAMES = FALSE)), 
+                      stringsAsFactors = FALSE)
+    return(res)
   }
+  
+  not_found <- data.frame(
+    name = "Not found",
+    author = "",
+    status = "Not fonud",
+    id = "",
+    accepted_name = "",
+    accepted_author = "",
+    accepted_id = ""
+  )
   
   get_data <- function(name, table_name = "plantlist")
   {
@@ -100,15 +224,13 @@ server <- function(input, output, session) {
     search_string <- paste(parts[1], tolower(parts[2]), sep = "")
     result <- dbGetQuery(conn, query, params = search_string)
     if (nrow(result) == 0)
-      result <- reader("NOT_FOUND.csv")
+      result <- not_found
     result$search_string <- NULL
     return(result)
   }
   
   find_most_appropriate <- function(data, name)
   {
-    print(name)
-    print(data)
     data$name <- tolower(data$name)
     data$author <- tolower(data$author)
     name <- tolower(name)
@@ -148,7 +270,7 @@ server <- function(input, output, session) {
     isHybrid <- grepl(" [x×] ", name)
     if (isHybrid)
     {
-      return(reader("NOT_FOUND.csv"))
+      return(not_found)
     }
     
     data_parsed <- do.call(rbind, apply(data, 1, function(x) parse_taxa(x["name"])))
@@ -181,12 +303,6 @@ server <- function(input, output, session) {
   
   retrieve_accepted_name <- function(name, plantdb, progress, progress_increment = 0.2) {
     matches <- get_data(name, plantdb)
-    # parts <- strsplit(name, " ")[[1]]
-    # path <- paste("data/", parts[1], "_", tolower(parts[2]), ".csv", sep = "")
-    # if (file.exists(path))
-      # matches <- reader(path)
-    # else
-    #  matches <- reader("data/NOT_FOUND.csv")
     result <- find_most_appropriate(matches, name)
     result[is.na.data.frame(result)] <- ""
     result$search <- name
@@ -269,6 +385,8 @@ server <- function(input, output, session) {
   }
   
   prepare_for_web <- function(df) {
+    if (ncol(df) > 4)
+      return(df)
     df$accepted_id <- sapply(df$accepted_id, get_hyperlink)
     df$status <- sapply(df$status, status_colorizer)
     colnames(df) <- c("Введённое название", "Статус",
@@ -292,10 +410,25 @@ server <- function(input, output, session) {
     result = NULL
   )
   
+  process_multiple <- function(species, db)
+  {
+    results_list <- promise_map(db, function(x, species) process_data(species, x), species)
+    then(results_list, function(x)
+     {
+      d <- Reduce(function(a, b) merge(a, b, by = "search"), x)
+      d
+     })
+  }
+  
   observeEvent(input$update, {
     list$data <- parse_input(input$species)
     list$plantdb <- input$plantdb
-    list$result <- process_data(list$data, list$plantdb)
+    if (is.null(list$plantdb))
+      list$plantdb <- "plantlist"
+    if (length(list$plantdb) == 1)
+      list$result <- process_data(list$data, list$plantdb)
+    else
+      list$result <- process_multiple(list$data, list$plantdb)
   })
   
 

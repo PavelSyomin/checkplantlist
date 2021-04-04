@@ -61,3 +61,5 @@ dbWriteTable(conn, "lcvp", lcvp)
 dbExecute(conn, "CREATE INDEX lcvp_search_string_index ON lcvp(search_string)")
 
 dbDisconnect(conn)
+
+rm(conn, data, input_split, output_split, lcvp)
