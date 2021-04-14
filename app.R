@@ -308,8 +308,8 @@ server <- function(input, output, session) {
     result$search <- name
     result$accepted_name <- paste(result$accepted_name, result$accepted_author)
     result[result$status == "Not Found", "status"] <- "Not found"
-    result[, c("id", "name",
-               "author", "accepted_author")] <- NULL
+    result$accepted_url = get_url(result$accepted_id, plantdb)
+    result <-  result[c("search", "status", "accepted_name", "accepted_url")]
     progress$inc(progress_increment, message = "Проверка", detail = name)
     return(result)
   }
@@ -345,22 +345,23 @@ server <- function(input, output, session) {
     x <- as.list(x[[1]])
   }
   
-  get_url <- function(text) {
-    if (text == "") 
+  get_url <- function(id, plantdb) {
+    if (id == "") 
       return("")
-    switch(list$plantdb,
-           "plantlist" = paste0("http://theplantlist.org/tpl1.1/record/", text),
-           "wfo" = paste0("http://www.worldfloraonline.org/taxon/", text),
-           "wcvp" = paste0("https://wcvp.science.kew.org/taxon/", text),
-           "gbif" = paste0("https://www.gbif.org/species/", text),
+    switch(plantdb,
+           "plantlist" = paste0("http://theplantlist.org/tpl1.1/record/", id),
+           "wfo" = paste0("http://www.worldfloraonline.org/taxon/", id),
+           "wcvp" = paste0("https://wcvp.science.kew.org/taxon/", id),
+           "gbif" = paste0("https://www.gbif.org/species/", id),
            "lcvp" = ""
     )
   }
   
-  get_hyperlink <- function(text) {
+  get_hyperlink <- function(text, href) {
     if (text == "")
       return("")
-    href = get_url(text)
+    if (href == "")
+      return(text)
     paste0("<a href=\"", href, "\" target=\"_blank\">", text, "</a>")
   }
   
@@ -379,7 +380,6 @@ server <- function(input, output, session) {
       enable("update")
       enable("csv")
       enable("xlsx")
-      x <- x[c("search", "status", "accepted_name", "accepted_id")]
       x
       })
   }
@@ -387,19 +387,20 @@ server <- function(input, output, session) {
   prepare_for_web <- function(df) {
     if (ncol(df) > 4)
       return(df)
-    df$accepted_id <- sapply(df$accepted_id, get_hyperlink)
+    print(df$accepted_name)
+    print(df$accepted_url)
+    df$accepted_name <- mapply(get_hyperlink, df$accepted_name, df$accepted_url)
     df$status <- sapply(df$status, status_colorizer)
+    df <- df[c("search", "status", "accepted_name")]
     colnames(df) <- c("Введённое название", "Статус",
-                      "Принятое название",
-                      "Номер и&nbsp;ссылка на&nbsp;ThePlantList")
+                      "Принятое название")
     df
   }
   
   prepare_for_download <- function(df) {
-    df$accepted_id <- sapply(df$accepted_id, get_url)
     colnames(df) <- c("Введённое название", "Статус",
                       "Принятое название",
-                      "Номер и ссылка на ThePlantList")
+                      "Ссылка на сайт с информацией")
     df
   }
   
@@ -484,3 +485,6 @@ shinyApp(ui = ui, server = server)
 # The commented code was used to generate sapmle.rds and should not be uncommented unless you want to re-generate sample.rds
 # saveRDS(process_data(parse_input("Betula Pendula Roth\nAbies Alba (Münchh.) Michx.\nPinus Sylvestris Thunb.\nAcanthopale azaleoides\nCaput Draconis")), file = "sample.rds")
 # df <- readRDS("sample.rds")
+# df$accepted_url <- sapply(df$accepted_id, get_url, "plantlist")
+# df$accepted_id <- NULL
+# saveRDS(df, "sample.rds")
