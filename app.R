@@ -416,6 +416,12 @@ server <- function(input, output, session) {
     results_list <- promise_map(db, function(x, species) process_data(species, x), species)
     then(results_list, function(x)
      {
+      x <- mapply(function(df, suffix) {
+        old_colnames <- colnames(df)
+        new_colnames <- c(old_colnames[1], paste(old_colnames[-1], suffix, sep = "-"))
+        colnames(df) <- new_colnames
+        df
+      }, x, db, SIMPLIFY = FALSE)
       d <- Reduce(function(a, b) merge(a, b, by = "search"), x)
       d
      })
