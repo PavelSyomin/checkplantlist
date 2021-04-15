@@ -397,6 +397,29 @@ server <- function(input, output, session) {
     df
   }
   
+  prepare_for_web_multiple <- function(df)
+  {
+    res <- do.call(rbind, by(df, 1:nrow(df), function(x)
+                   {
+                     input <- x[1, 1]
+                     x_split <- split.default(x[-1], gl(floor(length(x[-1]) / 3), 3, labels = c("tpl", "wfo", "wcvp", "gbif", "lcvp")), drop = TRUE)
+                     x_split <- lapply(x_split, function(x) {
+                       db <- strsplit(names(x[1]), "-")[[1]][2]
+                       x$db <- db
+                       colnames(x) <- c("status", "accepted_name", "accepted_url", "db_name")
+                       x
+                     })
+                     x <- do.call(rbind, x_split)
+                     x$search <- input
+                     x[c("search", "db_name", "status", "accepted_name", "accepted_url")]
+                   }))
+    db_names <- res[2]
+    results <- res[-2]
+    results <- prepare_for_web(results)
+    colnames(db_names) <- "База данных"
+    cbind(results[1], db_names, results[-1])
+  }
+  
   prepare_for_download <- function(df) {
     colnames(df) <- c("Введённое название", "Статус",
                       "Принятое название",
@@ -441,7 +464,10 @@ server <- function(input, output, session) {
 
   output$checked_species <- renderTable({
     if (!is.null(list$data)) {
-      then(list$result, prepare_for_web)
+      if (length(list$plantdb) == 1)
+        then(list$result, prepare_for_web)
+      else
+        then(list$result, prepare_for_web_multiple)
       }
     else {
       prepare_for_web(list$demo)
