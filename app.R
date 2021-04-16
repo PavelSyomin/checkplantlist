@@ -201,7 +201,7 @@ server <- function(input, output, session) {
   not_found <- data.frame(
     name = "Not found",
     author = "",
-    status = "Not fonud",
+    status = "Not found",
     id = "",
     accepted_name = "",
     accepted_author = "",
@@ -307,7 +307,6 @@ server <- function(input, output, session) {
     result[is.na.data.frame(result)] <- ""
     result$search <- name
     result$accepted_name <- paste(result$accepted_name, result$accepted_author)
-    result[result$status == "Not Found", "status"] <- "Not found"
     result$accepted_url = get_url(result$accepted_id, plantdb)
     result <-  result[c("search", "status", "accepted_name", "accepted_url")]
     progress$inc(progress_increment, message = "Проверка", detail = name)
@@ -385,10 +384,6 @@ server <- function(input, output, session) {
   }
   
   prepare_for_web <- function(df) {
-    if (ncol(df) > 4)
-      return(df)
-    print(df$accepted_name)
-    print(df$accepted_url)
     df$accepted_name <- mapply(get_hyperlink, df$accepted_name, df$accepted_url)
     df$status <- sapply(df$status, status_colorizer)
     df <- df[c("search", "status", "accepted_name")]
@@ -410,10 +405,16 @@ server <- function(input, output, session) {
                        x
                      })
                      x <- do.call(rbind, x_split)
-                     x$search <- input
+                     x$search <- ""
+                     x[1, "search"] <- input
                      x[c("search", "db_name", "status", "accepted_name", "accepted_url")]
                    }))
     db_names <- res[2]
+    db_names$db_name <- factor(db_names$db_name,
+                       levels = c("plantlist", "wcvp", "wfo", "gbif", "lcvp"),
+                       labels = c("ThePlantlist", "World Checklist of Vascular Plants",
+                                  "WorldFloraOnline", "GBIF Backbone",
+                                  "Leipzig Catalogue of Vascular Plants"))
     results <- res[-2]
     results <- prepare_for_web(results)
     colnames(db_names) <- "База данных"
@@ -421,9 +422,12 @@ server <- function(input, output, session) {
   }
   
   prepare_for_download <- function(df) {
-    colnames(df) <- c("Введённое название", "Статус",
-                      "Принятое название",
-                      "Ссылка на сайт с информацией")
+    if(ncol(df) == 4)
+    {
+      colnames(df) <- c("Введённое название", "Статус",
+                        "Принятое название",
+                        "Ссылка на сайт с информацией")
+    }
     df
   }
   
@@ -445,7 +449,7 @@ server <- function(input, output, session) {
         colnames(df) <- new_colnames
         df
       }, x, db, SIMPLIFY = FALSE)
-      d <- Reduce(function(a, b) merge(a, b, by = "search"), x)
+      d <- Reduce(function(a, b) merge(a, b, by = "search", sort = FALSE), x)
       d
      })
   }
