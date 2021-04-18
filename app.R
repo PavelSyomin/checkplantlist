@@ -428,6 +428,22 @@ server <- function(input, output, session) {
                         "Принятое название",
                         "Ссылка на сайт с информацией")
     }
+    else
+    {
+      old_colnames <- colnames(df)[-1]
+      n_groups <- length(old_colnames) / 3
+      print(rep(1:n_groups, each = 3))
+      old_colnames_groups <- split(old_colnames, rep(1:n_groups, each = 3))
+      print(old_colnames_groups)
+      new_colnames_groups <- lapply(old_colnames_groups, function(group)
+        {
+        suffix <- strsplit(group[1], "-")[[1]][2]
+        new_colnames <- paste(c("Статус", "Принятое название", "Ссылка на сайт базы данных"), suffix)
+        new_colnames
+      })
+      new_colnames <- c("Введённое название", do.call(c, new_colnames_groups))
+      colnames(df) <- new_colnames
+    }
     df
   }
   
