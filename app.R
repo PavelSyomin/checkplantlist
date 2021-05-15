@@ -223,6 +223,7 @@ server <- function(input, output, session) {
       parts[2] <- ""
     search_string <- paste(parts[1], tolower(parts[2]), sep = "")
     result <- dbGetQuery(conn, query, params = search_string)
+    dbDisconnect(conn)
     if (nrow(result) == 0)
       result <- not_found
     result$search_string <- NULL
