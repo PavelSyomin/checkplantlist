@@ -17,7 +17,7 @@ library(shinyjs)
 library(RSQLite)
 plan(multisession, workers = 2)
 
-# Define UI for application that draws a histogram
+# Define UI for application
 ui <- fluidPage(
   
    useShinyjs(),
@@ -229,76 +229,40 @@ server <- function(input, output, session) {
     return(result)
   }
   
+  preprocess_name <- function(x)
+  {
+    x <- gsub("[.() x×&]", "", x)
+    tolower(x)
+  }
+  
   find_most_appropriate <- function(data, name)
   {
-    data$name <- tolower(data$name)
-    data$author <- tolower(data$author)
-    name <- tolower(name)
+    # Turn everything to lovercase and remove some punctuation characters
+    data$name <- sapply(data$name, preprocess_name)
+    data$author <- sapply(data$author, preprocess_name)
+    data$full_name <- paste(data$name, data$author, sep = "")
+    name <- preprocess_name(name)
     
-    result <- data
-    if (nrow(result) == 1)
-      return(result)
-    
-    result <- data[data$name == name, ]
-    if (nrow(result) == 1)
-      return(result)
-    
-    data$full_name <- paste(data$name, data$author, sep = " ")
+    # Attempt # 1: try exact name+author match
     result <- data[data$full_name == name, ]
-    result$full_name <- NULL
-    if (nrow(result) == 1)
-      return(result)
-    data$full_name <- NULL
     
-    name_parts <- parse_taxa(name)
-    colnames(name_parts) <- tolower(colnames(name_parts))
-    name_parts$name <- paste(name_parts$genus_parsed, name_parts$species_parsed, sep = " ")
+    # If we have any results, return them
+    # Limit by 1 to ensure that we have one result for one input name
+    if (nrow(result) > 0)
+      return(result[1, ])
     
-    result <- data[data$name == name_parts$name & data$author == name_parts$author_of_species_parsed, ]
-    if (nrow(result) == 1)
-      return(result)
+    # Attempt # 2: try exact match, but by name only
+    result <- data[data$name == name, ]
     
-    name_pattern <- paste("^", name, sep = "")
-    result <- data[grepl(name_pattern, data$name), ]
-    if (nrow(result) == 1)
-      return(result)
+    if (nrow(result) > 0)
+      return(result[1, ])
     
-    result <- data[grepl(name_pattern, data$name) & data$author == name_parts$author_of_species_parsed, ]
-    if(nrow(result) == 1)
-      return(result)
-    
-    isHybrid <- grepl(" [x×] ", name)
-    if (isHybrid)
-    {
-      return(not_found)
-    }
-    
-    data_parsed <- do.call(rbind, apply(data, 1, function(x) parse_taxa(x["name"])))
-    
-    colnames(data_parsed) <- tolower(colnames(data_parsed))
-    
-    scores <- apply(data_parsed, 1, function (x, parts) {
-      total <-  0
-      if (x["genus_parsed"] == parts$genus_parsed)
-        total <- total + 1
-      if (x["species_parsed"] == parts$species_parsed)
-        total <- total + 1
-      if (x["author_of_species_parsed"] == parts$author_of_species_parsed)
-        total <- total + 1
-      if (x["infraspecific_rank_parsed"] == parts$infraspecific_rank_parsed)
-        total <- total + 1
-      if (x["infraspecific_epithet_parsed"] == parts$infraspecific_epithet_parsed)
-        total <- total + 1
-      if (x["author_of_infraspecific_rank_parsed"] == parts$author_of_infraspecific_rank_parsed)
-        total <- total + 1
-      return(total)
-    }, name_parts)
-    scores <- as.numeric(scores)
-    max_score <- which.max(scores)
-    result <- data[max_score, ]
-    if (nrow(result) == 1)
-      return(result)
-    return(data)
+    # Attempl # 3: if we have only one row in data, assume that it is the correct name
+    if (nrow(data) == 1)
+      return(data)
+  
+    # If all attmepts have failed, return not found
+    return(not_found)
   }
   
   retrieve_accepted_name <- function(name, plantdb, progress, progress_increment = 0.2) {
