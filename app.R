@@ -41,14 +41,14 @@ ui <- fluidPage(
                selectInput("plantdb",
                            "База для проверки",
                             choices = list(
-                              "ThePlantList" = "plantlist",
+                              "ThePlantList" = "tpl",
                               "WorldFloraOnline" = "wfo",
                               "World Checklist of Vascular Plants" = "wcvp",
                               "GBIF Backbone" = "gbif",
                               "Leipzig Catalogue of Vascular Plants" = "lcvp"
                             ),
                            width = "100%",
-                           selected = "plantlist",
+                           selected = "tpl",
                            multiple = TRUE),
                helpText("Одна строка — одно название.",
                         "Любые опечатки пока трактуются не в вашу пользу."),
@@ -208,16 +208,17 @@ server <- function(input, output, session) {
     accepted_id = ""
   )
   
-  get_data <- function(name, table_name = "plantlist")
+  get_data <- function(name, table_name = "tpl")
   {
     conn <- dbConnect(SQLite(), "species.db")
     query <- switch(table_name,
-                    plantlist = "SELECT * FROM plantlist WHERE search_string = ?",
+                    tpl = "SELECT * FROM tpl WHERE search_string = ?",
                     wfo = "SELECT * FROM wfo WHERE search_string = ?",
                     wcvp = "SELECT * FROM wcvp WHERE search_string = ?",
                     gbif = "SELECT * FROM gbif WHERE search_string = ?",
                     lcvp = "SELECT * FROM lcvp WHERE search_string = ?"
     )
+    name <- trimws(gsub(pattern = " +", replacement = " ", x = name))
     parts <- strsplit(name, " ")[[1]]
     if (length(parts) == 1)
       parts[2] <- ""
@@ -272,6 +273,7 @@ server <- function(input, output, session) {
     result[is.na.data.frame(result)] <- ""
     result$search <- name
     result$accepted_name <- paste(result$accepted_name, result$accepted_author)
+    result$accepted_name <- sapply(result$accepted_name, trimws)
     result$accepted_url = get_url(result$accepted_id, plantdb)
     result <-  result[c("search", "status", "accepted_name", "accepted_url")]
     progress$inc(progress_increment, message = "Проверка", detail = name)
@@ -313,7 +315,7 @@ server <- function(input, output, session) {
     if (id == "") 
       return("")
     switch(plantdb,
-           "plantlist" = paste0("http://theplantlist.org/tpl1.1/record/", id),
+           "tpl" = paste0("http://theplantlist.org/tpl1.1/record/", id),
            "wfo" = paste0("http://www.worldfloraonline.org/taxon/", id),
            "wcvp" = paste0("https://wcvp.science.kew.org/taxon/", id),
            "gbif" = paste0("https://www.gbif.org/species/", id),
@@ -376,7 +378,7 @@ server <- function(input, output, session) {
                    }))
     db_names <- res[2]
     db_names$db_name <- factor(db_names$db_name,
-                       levels = c("plantlist", "wcvp", "wfo", "gbif", "lcvp"),
+                       levels = c("tpl", "wcvp", "wfo", "gbif", "lcvp"),
                        labels = c("ThePlantlist", "World Checklist of Vascular Plants",
                                   "WorldFloraOnline", "GBIF Backbone",
                                   "Leipzig Catalogue of Vascular Plants"))
@@ -415,7 +417,7 @@ server <- function(input, output, session) {
   list <- reactiveValues(
     data = NULL,
     demo = readRDS("sample.rds"),
-    plantdb = "plantlist",
+    plantdb = "tpl",
     result = NULL
   )
   
@@ -439,7 +441,7 @@ server <- function(input, output, session) {
     list$data <- parse_input(input$species)
     list$plantdb <- input$plantdb
     if (is.null(list$plantdb))
-      list$plantdb <- "plantlist"
+      list$plantdb <- "tpl"
     if (length(list$plantdb) == 1)
       list$result <- process_data(list$data, list$plantdb)
     else
@@ -471,7 +473,7 @@ server <- function(input, output, session) {
       }
       else {
         data = prepare_for_download(list$demo)
-        write.csv(data, file)
+        write.csv(data, file, row.names = FALSE)
       }
     }
   )
@@ -484,12 +486,12 @@ server <- function(input, output, session) {
       if (!is.null(list$result)) {
         then(list$result, ~{
           data <- prepare_for_download(.)
-          write.xlsx(data, file)
+          write.xlsx(data, file, )
         })
       }
       else {
         data <- prepare_for_download(list$demo)
-        write.xlsx(data, file)
+        write.xlsx(data, file, row.names = FALSE)
       }
     }
   )
@@ -502,6 +504,6 @@ shinyApp(ui = ui, server = server)
 # The commented code was used to generate sapmle.rds and should not be uncommented unless you want to re-generate sample.rds
 # saveRDS(process_data(parse_input("Betula Pendula Roth\nAbies Alba (Münchh.) Michx.\nPinus Sylvestris Thunb.\nAcanthopale azaleoides\nCaput Draconis")), file = "sample.rds")
 # df <- readRDS("sample.rds")
-# df$accepted_url <- sapply(df$accepted_id, get_url, "plantlist")
+# df$accepted_url <- sapply(df$accepted_id, get_url, "tpl")
 # df$accepted_id <- NULL
 # saveRDS(df, "sample.rds")
