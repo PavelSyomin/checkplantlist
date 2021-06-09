@@ -1,6 +1,7 @@
 library(plantlist)
-library(RSQLite)
 
+message("===ThePlantList===")
+message("Processing data…")
 accepted <- acc_dat[-2]
 synonyms <- syn_dat[-2]
 
@@ -26,8 +27,7 @@ tpl$search_string <- sapply(tpl$name, function (x) {
   paste0(strsplit(x, " ", fixed = TRUE)[[1]][1:2], collapse = "")
 }, USE.NAMES = FALSE)
 
-connection <- dbConnect(SQLite(), "species.db")
-
+message("Writing to database…")
 if ("tpl" %in% dbListTables(connection))
   dbRemoveTable(connection, "tpl")
 
@@ -35,6 +35,6 @@ dbWriteTable(connection, "tpl", tpl)
 
 dbExecute(connection, "CREATE INDEX tpl_index ON tpl(search_string)")
 
-dbDisconnect(connection)
-
 rm(accepted, synonyms, synonyms_merged, tpl)
+
+message("Done.\n")

@@ -1,7 +1,7 @@
 library(data.table)
 library(RSQLite)
 
-data <- fread("gbif/Taxon.tsv", sep = "\t")
+data <- fread("../raw_data/gbif.tsv", sep = "\t")
 str(data)
 table(data$kingdom)
 data2 <- data[kingdom == "Plantae",

@@ -2,8 +2,7 @@ library(data.table)
 library(plantlist)
 library(RSQLite)
 
-data <- fread("classification.txt", sep = "\t", quote = "\"", header = TRUE)
-str(data)
+data <- fread("../raw_data/wfo.txt", sep = "\t", quote = "\"", header = TRUE)
 data_s <- head(data, 50)
 
 data2 <- data[, c("taxonID",

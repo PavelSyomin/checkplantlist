@@ -1,7 +1,6 @@
 library(data.table)
 
-data <- fread("wcvp_v4_mar_2021.txt", sep = "|")
-str(data)
+data <- fread("../raw_data/wcvp.txt", sep = "|")
 data2 <- data[rank %in% c("Form",
                           "InfraspecificName",
                           "SPECIES",
