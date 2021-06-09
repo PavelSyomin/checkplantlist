@@ -1,9 +1,8 @@
 library(data.table)
-library(plantlist)
-library(RSQLite)
 
-data <- fread("../raw_data/wfo.txt", sep = "\t", quote = "\"", header = TRUE)
-data_s <- head(data, 50)
+message("===World Flora Online===")
+message("Processing data…")
+data <- fread("raw_data/wfo.txt", sep = "\t", quote = "\"", header = TRUE)
 
 data2 <- data[, c("taxonID",
                 "scientificName",
@@ -55,12 +54,12 @@ wfo_synonyms <- merge(wfo_synonyms, wfo_accepted,
                       all.x = TRUE,
                       suffixes = c("_syn", "_acc"))
 
-wfo_synonyms <- wfo_synonyms[, .(name = namesyn,
-                                 author = authorsyn,
-                                 status = statussyn,
+wfo_synonyms <- wfo_synonyms[, .(name = name_syn,
+                                 author = author_syn,
+                                 status = status_syn,
                                  id,
-                                 accepted_name = nameacc,
-                                 accepted_author = authoracc,
+                                 accepted_name = name_acc,
+                                 accepted_author = author_acc,
                                  accepted_id)]
 
 wfo <- rbind(wfo_accepted, wfo_synonyms)
@@ -71,10 +70,14 @@ wfo$search_string <- sapply(wfo$name, function (x) {
   paste0(strsplit(x, " ", fixed = TRUE)[[1]][1:2], collapse = "")
 }, USE.NAMES = FALSE)
 
-conn <- dbConnect(SQLite(), "species.db")
+message("Writing to database…")
+if ("wfo" %in% dbListTables(connection))
+  dbRemoveTable(connection, "wfo")
 
-dbWriteTable(conn, "wfo", wfo)
+dbWriteTable(connection, "wfo", wfo)
 
-dbExecute(conn, "CREATE INDEX search_string_index ON wfo(search_string)")
+dbExecute(connection, "CREATE INDEX wfo_index ON wfo(search_string)")
 
-dbDisconnect(conn)
+rm(data, data2, data3, wfo, wfo_accepted, wfo_synonyms)
+
+message("Done.\n")

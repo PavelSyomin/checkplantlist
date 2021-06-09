@@ -1,8 +1,8 @@
 library(data.table)
-library(RSQLite)
 
-data <- fread("../raw_data/gbif.tsv", sep = "\t")
-str(data)
+message("===GBIF Backbone===")
+message("Processing data…")
+data <- fread("raw_data/gbif.tsv", sep = "\t")
 table(data$kingdom)
 data2 <- data[kingdom == "Plantae",
               .(name = switch(taxonRank,
@@ -68,12 +68,14 @@ gbif$search_string <- sapply(gbif$name, function (x) {
   paste0(parts[1:2], collapse = "")
 }, USE.NAMES = FALSE)
 
-conn <- dbConnect(SQLite(), "species.db")
+message("Writing to database…")
+if ("gbif" %in% dbListTables(connection))
+  dbRemoveTable(connection, "gbif")
 
-dbWriteTable(conn, "gbif", gbif)
+dbWriteTable(connection, "gbif", gbif)
 
-dbExecute(conn, "CREATE INDEX gbif_search_string_index ON gbif(search_string)")
+dbExecute(connection, "CREATE INDEX gbif_index ON gbif(search_string)")
 
-dbDisconnect(conn)
+rm(data, data2, data3, gbif_accepted, gbif_synonyms, gbif)
 
-rm(data, data2, data3, gbif_accepted, gbif_synonyms, gbif, conn)
+message("Done.\n")

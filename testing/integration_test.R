@@ -1,9 +1,11 @@
-test_data <- read.csv("integration_test_sample.csv")
+test_data <- read.csv("testing/integration_test_sample.csv")
 
+# Should result to 0 in gbif, lcvp and tpl, 2 in wcvp and 1 in wfo (consider these 3 mismatches as known issues :)
 test_result <- by(test_data, test_data$plantdb, function(x)
   {
   plantdb <- x[1, 5]
-  tested <- read.csv(paste("tested_", plantdb, ".csv", sep = ""))
+  # Load manually prepared results
+  tested <- read.csv(paste("testing/tested_", plantdb, ".csv", sep = ""))
   expected <- x[1:3]
   observed <- tested[c(2, 4, 3)]
   observed[2] <- sapply(observed[2], trimws)

@@ -1,6 +1,8 @@
 library(data.table)
 
-data <- fread("../raw_data/wcvp.txt", sep = "|")
+message("===World Checklist of Vascular Plants===")
+message("Processing data…")
+data <- fread("raw_data/wcvp.txt", sep = "|")
 data2 <- data[rank %in% c("Form",
                           "InfraspecificName",
                           "SPECIES",
@@ -22,9 +24,6 @@ wcvp[status == "Synonym"][1:3]
 
 wcvp[grepl("×", name)][1:10]
 
-wcvp$l <- sapply(wcvp$name, function(x) length(strsplit(x, " ")[[1]]))
-wcvp[l == 1][1:50]
-
 wcvp$search_string <- sapply(wcvp$name, function (x) {
   parts <- strsplit(x, " ", fixed = TRUE)[[1]]
   if (length(parts) == 1)
@@ -45,12 +44,14 @@ wcvp <- rbind(
   wcvp[status %in% c("Synonym", "Homotypic_Synonym")]
 )
 
-conn <- dbConnect(SQLite(), "species.db")
+message("Writing to database…")
+if ("wcvp" %in% dbListTables(connection))
+  dbRemoveTable(connection, "wcvp")
 
-dbWriteTable(conn, "wcvp", wcvp)
+dbWriteTable(connection, "wcvp", wcvp)
 
-dbExecute(conn, "CREATE INDEX wcvp_search_string_index ON wcvp(search_string)")
+dbExecute(connection, "CREATE INDEX wcvp_index ON wcvp(search_string)")
 
-dbDisconnect(conn)
+rm(data, data2, wcvp)
 
-rm(data, data2, wcvp, conn)
+message("Done.\n")

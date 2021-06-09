@@ -1,7 +1,8 @@
 library(LCVP)
-library(RSQLite)
 library(data.table)
 
+message("===Leipzig Catalogue of Vascular Plants===")
+message("Processing data…")
 data <- tab_lcvp
 
 data <- as.data.table(data)
@@ -54,12 +55,14 @@ lcvp$search_string <- sapply(lcvp$name, function (x) {
   paste0(parts[1:2], collapse = "")
 }, USE.NAMES = FALSE)
 
-conn <- dbConnect(SQLite(), "species.db")
+message("Writing to database…")
+if ("lcvp" %in% dbListTables(connection))
+  dbRemoveTable(connection, "lcvp")
 
-dbWriteTable(conn, "lcvp", lcvp)
+dbWriteTable(connection, "lcvp", lcvp)
 
-dbExecute(conn, "CREATE INDEX lcvp_search_string_index ON lcvp(search_string)")
+dbExecute(connection, "CREATE INDEX lcvp_index ON lcvp(search_string)")
 
-dbDisconnect(conn)
+rm(data, input_split, output_split, lcvp)
 
-rm(conn, data, input_split, output_split, lcvp)
+message("Done.\n")
