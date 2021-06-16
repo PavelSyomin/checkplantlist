@@ -265,36 +265,30 @@ prepare_for_web <- function(df) {
 # Postprocess output for web view if two or more databases are selected
 prepare_for_web_multiple <- function(df)
 {
-  res <- do.call(rbind, by(df, 1:nrow(df), function(x)
-  {
-    input <- x[1, 1]
-    x_split <- split.default(x[-1], gl(floor(length(x[-1]) / 3), 3, labels = c("tpl", "wfo", "wcvp", "gbif", "lcvp")), drop = TRUE)
-    x_split <- lapply(x_split, function(x) {
-      db <- strsplit(names(x[1]), "-")[[1]][2]
-      x$db <- db
-      colnames(x) <- c("status", "accepted_name", "accepted_url", "db_name")
-      x
-    })
-    x <- do.call(rbind, x_split)
-    x$search <- ""
-    x[1, "search"] <- input
-    x[c("search", "db_name", "status", "accepted_name", "accepted_url")]
-  }))
-  db_names <- res[2]
-  db_names$db_name <- factor(db_names$db_name,
+  dfs <- lapply(df, function (x) {
+    x$db_name <- strsplit(colnames(x)[2], "-")[[1]][2]
+    colnames(x) <- c("search", "status", "accepted_name", "accepted_url", "db_name")
+    x$n <- 1:nrow(x)
+    x
+  })
+  res <- do.call(rbind, dfs)
+  res <- res[order(res$n), ]
+  res <- res[c("search", "db_name", "status", "accepted_name", "accepted_url")]
+  res$db_name <- factor(res$db_name,
                              levels = c("tpl", "wcvp", "wfo", "gbif", "lcvp"),
                              labels = c("ThePlantlist", "World Checklist of Vascular Plants",
                                         "WorldFloraOnline", "GBIF Backbone",
                                         "Leipzig Catalogue of Vascular Plants"))
   results <- res[-2]
   results <- prepare_for_web(results)
-  colnames(db_names) <- "База данных"
-  cbind(results[1], db_names, results[-1])
+  db_name <- res["db_name"]
+  colnames(db_name) <- "База данных"
+  cbind(results[1], db_name, results[-1])
 }
 
 # Postprocess output for download
 prepare_for_download <- function(df) {
-  if(ncol(df) == 4)
+  if(!is.null(ncol(df)))
   {
     colnames(df) <- c("Введённое название", "Статус",
                       "Принятое название",
@@ -302,11 +296,10 @@ prepare_for_download <- function(df) {
   }
   else
   {
+    df <- Reduce(function(a, b) merge(a, b, by = "search", sort = FALSE), df)
     old_colnames <- colnames(df)[-1]
     n_groups <- length(old_colnames) / 3
-    print(rep(1:n_groups, each = 3))
     old_colnames_groups <- split(old_colnames, rep(1:n_groups, each = 3))
-    print(old_colnames_groups)
     new_colnames_groups <- lapply(old_colnames_groups, function(group)
     {
       suffix <- strsplit(group[1], "-")[[1]][2]
@@ -373,7 +366,6 @@ process_multiple <- function(species, db)
       colnames(df) <- new_colnames
       df
     }, x, db, SIMPLIFY = FALSE)
-    d <- Reduce(function(a, b) merge(a, b, by = "search", sort = FALSE), x)
-    d
+    x
   })
 }
