@@ -22,6 +22,16 @@ ui <- fluidPage(
    # Application title
    titlePanel("Проверка по ботаническим базам данных"),
    
+   # Note on beta testing
+   fluidRow(
+     column(12,
+            div(class="alert alert-warning",
+            p("Это бета-тест новой версии. В ней, скорее всего, есть ошибки. Об ошибках пишите на", a(href = "mailto:pas.ntg@gmail.com", "pas.ntg@gmail.com"), "или", a(href = "https://github.com/PavelSyomin/checkplantlist", "Гитхаб"), "или сообщите любым другим способом."),
+            p("Старая версия приложения находится на", a(href="https://plantlist.shinyapps.io/check/", "https://plantlist.shinyapps.io/check/"), "и будет там, пока не станет ясно, что новая версия не хуже.")
+            )
+     )
+   ),
+   
    # Sidebar with a textarea input for a list of species
    fluidRow(
       column(4,
