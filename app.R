@@ -22,7 +22,7 @@ ui <- fluidPage(
    # Application title
    titlePanel("Проверка по ботаническим базам данных"),
    
-   # Note on beta testing
+   # Warning on beta testing
    fluidRow(
      column(12,
             div(class="alert alert-warning",
@@ -38,7 +38,7 @@ ui <- fluidPage(
              wellPanel(
                textAreaInput("species",
                              "Список видов",
-                             value = "Betula Pendula Roth\nAbies Alba (Münchh.) Michx.\nPinus Sylvestris Thunb.\nAcanthopale azaleoides\nCaput Draconis",
+                             value = "Betula pendula Roth\nAbies alba (Münchh.) Michx.\nPinus sylvestris Thunb.\nAcanthopale azaleoides\nCaput draconis",
                              width = "100%",
                              height = "200px",
                              resize = "vertical",
