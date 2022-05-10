@@ -1,0 +1,13 @@
+name: checkplantlist
+title: checkplantlist
+username:
+account: plantlist
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 6270631
+bundleId: 5890374
+url: https://plantlist.shinyapps.io/checkplantlist/
+when: 1652175974.30122
+lastSyncTime: 1652175974.30125
+asMultiple: FALSE
+asStatic: FALSE
